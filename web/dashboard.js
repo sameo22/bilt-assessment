@@ -10,8 +10,6 @@ function formatPoints(points) {
   return `${numberFormatter.format(points)} ${points === 1 ? "point" : "points"}`;
 }
 
-// Title, description and tone for each outcome from the RewardsEngine.
-// Only AWARDED gets to say points were credited.
 function statusFor(result, member) {
   switch (result.outcome) {
     case "AWARDED":
@@ -34,7 +32,6 @@ function statusFor(result, member) {
         tone: "warning",
       };
     default:
-      // Don't say "credited" for something we don't recognize.
       return {
         title: "Payment received",
         description: "We couldn't confirm the points for this payment yet.",

@@ -45,8 +45,7 @@
       import { renderDashboard } from "./dashboard.js";
 
       // Preview data. The production application would receive the same
-      // shape from PointsResult and MemberAccount. Add ?outcome=DUPLICATE or
-      // ?outcome=CAPPED to preview the other states.
+      // shape from PointsResult and MemberAccount. Try ?outcome=CAPPED.
       const outcome =
         new URLSearchParams(location.search).get("outcome") ?? "AWARDED";
       const previews = {

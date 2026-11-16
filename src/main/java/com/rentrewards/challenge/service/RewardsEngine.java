@@ -14,11 +14,6 @@ import java.time.YearMonth;
  *  2. Calculate base points (with linked-account multiplier).
  *  3. Apply streak bonus if the member is eligible.
  *  4. Record the points, without going over the monthly cap.
- *
- * We claim first and award after (instead of check, award, then mark), so
- * if the same event hits two workers at once only one of them gets through.
- * If something fails before the points are saved we drop the claim, so the
- * processor's retry doesn't get wrongly skipped as a duplicate.
  */
 public class RewardsEngine {
 
@@ -54,7 +49,6 @@ public class RewardsEngine {
         YearMonth month = YearMonth.from(event.getPaymentDate());
         long pointsToAward = member.addPointsUpToCap(month, pointsWithBonus, MONTHLY_POINTS_CAP);
 
-        // A sub-dollar payment earns 0 points on its own, that's not the cap.
         boolean blockedByCap = pointsToAward == 0 && pointsWithBonus > 0;
         ProcessingOutcome outcome = blockedByCap
                 ? ProcessingOutcome.CAPPED

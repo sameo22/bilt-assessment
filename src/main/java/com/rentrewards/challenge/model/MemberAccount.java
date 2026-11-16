@@ -33,13 +33,7 @@ public class MemberAccount {
         return pointsByMonth.getOrDefault(month, 0L);
     }
 
-    /**
-     * Adds points for the month but never past the cap. It's synchronized so
-     * the read and the add happen together, otherwise two events landing at
-     * the same time could both sneak in under the cap.
-     *
-     * @return how many points actually got added (0 if already at the cap).
-     */
+    /** Adds points without going over the cap; returns how many were added. */
     public synchronized long addPointsUpToCap(YearMonth month, long requestedPoints, long monthlyCap) {
         long earned = getPointsForMonth(month);
         long added = Math.min(requestedPoints, Math.max(0L, monthlyCap - earned));
