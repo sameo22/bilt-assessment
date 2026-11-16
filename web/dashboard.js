@@ -6,18 +6,50 @@ const toneClasses = {
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
+function formatPoints(points) {
+  return `${numberFormatter.format(points)} ${points === 1 ? "point" : "points"}`;
+}
+
+// Title, description and tone for each outcome from the RewardsEngine.
+// Only AWARDED gets to say points were credited.
+function statusFor(result, member) {
+  switch (result.outcome) {
+    case "AWARDED":
+      return {
+        title: `${formatPoints(result.pointsAwarded)} credited`,
+        description: "Your rent payment was processed successfully.",
+        tone: "success",
+      };
+    case "DUPLICATE":
+      return {
+        title: "Duplicate event skipped",
+        description:
+          "We already received this payment, so no additional points were credited.",
+        tone: "neutral",
+      };
+    case "CAPPED":
+      return {
+        title: "Monthly cap reached",
+        description: `You've earned the maximum of ${formatPoints(member.monthlyCap)} this month, so this payment didn't earn additional points.`,
+        tone: "warning",
+      };
+    default:
+      // Don't say "credited" for something we don't recognize.
+      return {
+        title: "Payment received",
+        description: "We couldn't confirm the points for this payment yet.",
+        tone: "neutral",
+      };
+  }
+}
+
 export function buildViewModel(result, member) {
   const progressPercent = Math.min(
     100,
     (member.pointsThisMonth / member.monthlyCap) * 100,
   );
 
-  return {
-    title: `${numberFormatter.format(result.pointsAwarded)} points credited`,
-    description: "Your rent payment was processed successfully.",
-    tone: "success",
-    progressPercent,
-  };
+  return { ...statusFor(result, member), progressPercent };
 }
 
 export function renderDashboard(result, member) {

@@ -10,11 +10,15 @@ import java.time.YearMonth;
 /**
  * Orchestrates the processing of an incoming payment webhook event:
  *
- *  1. Ignore the event if it is a duplicate delivery.
+ *  1. Claim the eventId. If someone already has it, it's a duplicate, skip it.
  *  2. Calculate base points (with linked-account multiplier).
  *  3. Apply streak bonus if the member is eligible.
- *  4. Enforce the monthly points cap per member.
- *  5. Record the points and mark the event as processed.
+ *  4. Record the points, without going over the monthly cap.
+ *
+ * We claim first and award after (instead of check, award, then mark), so
+ * if the same event hits two workers at once only one of them gets through.
+ * If something fails before the points are saved we drop the claim, so the
+ * processor's retry doesn't get wrongly skipped as a duplicate.
  */
 public class RewardsEngine {
 
@@ -29,23 +33,30 @@ public class RewardsEngine {
     }
 
     public PointsResult processPayment(PaymentEvent event, MemberAccount member) {
-        if (processedEventStore.isDuplicate(event.getEventId())) {
+        String eventId = event.getEventId();
+        if (!processedEventStore.tryClaim(eventId)) {
             return new PointsResult(member.getMemberId(), 0, ProcessingOutcome.DUPLICATE);
         }
 
+        try {
+            return awardPoints(event, member);
+        } catch (RuntimeException | Error e) {
+            processedEventStore.release(eventId);
+            throw e;
+        }
+    }
+
+    private PointsResult awardPoints(PaymentEvent event, MemberAccount member) {
         long basePoints = pointsCalculator.calculateBasePoints(event);
         long pointsWithBonus = pointsCalculator.applyStreakBonusIfEligible(
                 basePoints, member.getCurrentStreakMonths());
 
         YearMonth month = YearMonth.from(event.getPaymentDate());
-        long alreadyEarnedThisMonth = member.getPointsForMonth(month);
-        long remainingCap = Math.max(0, MONTHLY_POINTS_CAP - alreadyEarnedThisMonth);
-        long pointsToAward = Math.min(pointsWithBonus, remainingCap);
+        long pointsToAward = member.addPointsUpToCap(month, pointsWithBonus, MONTHLY_POINTS_CAP);
 
-        member.addPointsForMonth(month, pointsToAward);
-        processedEventStore.markProcessed(event.getEventId());
-
-        ProcessingOutcome outcome = pointsToAward == 0
+        // A sub-dollar payment earns 0 points on its own, that's not the cap.
+        boolean blockedByCap = pointsToAward == 0 && pointsWithBonus > 0;
+        ProcessingOutcome outcome = blockedByCap
                 ? ProcessingOutcome.CAPPED
                 : ProcessingOutcome.AWARDED;
         return new PointsResult(member.getMemberId(), pointsToAward, outcome);

@@ -28,6 +28,7 @@ test("shows a duplicate event as skipped rather than credited", () => {
 
   assert.equal(view.title, "Duplicate event skipped");
   assert.equal(view.tone, "neutral");
+  assert.doesNotMatch(view.description, /successfully/);
 });
 
 test("shows when the member has reached the monthly cap", () => {
@@ -39,4 +40,34 @@ test("shows when the member has reached the monthly cap", () => {
   assert.equal(view.title, "Monthly cap reached");
   assert.equal(view.tone, "warning");
   assert.equal(view.progressPercent, 100);
+  assert.match(view.description, /100,000 points/);
+});
+
+test("uses singular copy for a single awarded point", () => {
+  const view = buildViewModel({ pointsAwarded: 1, outcome: "AWARDED" }, member);
+
+  assert.equal(view.title, "1 point credited");
+});
+
+test("never claims points were credited for an unknown outcome", () => {
+  const view = buildViewModel({ pointsAwarded: 0, outcome: "PENDING" }, member);
+
+  assert.doesNotMatch(view.title, /credited/);
+  assert.equal(view.tone, "neutral");
+});
+
+test("keeps the progress bar at 100% when points are over the cap", () => {
+  const view = buildViewModel(
+    { pointsAwarded: 0, outcome: "CAPPED" },
+    { ...member, pointsThisMonth: 120_000 },
+  );
+
+  assert.equal(view.progressPercent, 100);
+});
+
+test("falls back to a neutral state when the outcome is missing", () => {
+  const view = buildViewModel({ pointsAwarded: 0 }, member);
+
+  assert.doesNotMatch(view.title, /credited/);
+  assert.equal(view.tone, "neutral");
 });

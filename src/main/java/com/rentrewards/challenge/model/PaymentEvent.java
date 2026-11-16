@@ -23,6 +23,9 @@ public class PaymentEvent {
         this.eventId = Objects.requireNonNull(eventId, "eventId");
         this.memberId = Objects.requireNonNull(memberId, "memberId");
         this.amount = Objects.requireNonNull(amount, "amount");
+        if (amount.signum() <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
         this.paidWithLinkedAccount = paidWithLinkedAccount;
         this.paymentDate = Objects.requireNonNull(paymentDate, "paymentDate");
     }
